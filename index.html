@@ -573,9 +573,14 @@ function parseCSV(text) {
     return cells;
   };
   if (lines.length < 2) return { cols: [], rows: [] };
-  const rawCols = splitLine(lines[0]);
+
+  // Detecta se linha 0 é título mesclado (primeira célula não é "ESPECIALIDADE" nem "MÊS/ANO")
+  const firstLineNorm = normCol(splitLine(lines[0])[0] || '');
+  const headerIdx = (firstLineNorm === 'ESPECIALIDADE' || firstLineNorm === 'MES/ANO') ? 0 : 1;
+
+  const rawCols = splitLine(lines[headerIdx]);
   const cols = rawCols.map(resolveCol);
-  const rows = lines.slice(1).map(l => {
+  const rows = lines.slice(headerIdx + 1).map(l => {
     const vals = splitLine(l);
     const obj = {};
     cols.forEach((c, i) => { obj[c] = vals[i] ?? ''; });
