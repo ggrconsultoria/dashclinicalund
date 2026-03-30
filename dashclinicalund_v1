@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Impacto — Lund Nefrologia</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,300;0,400;0,600;0,700;0,900;1,300&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --azul: #0A2472;
+    --azul-medio: #1A3A8F;
+    --azul-claro: #1e4db7;
+    --vermelho: #E63329;
+    --vermelho-escuro: #b52820;
+    --branco: #FFFFFF;
+    --creme: #F5F0E8;
+    --cinza: #F0F3FA;
+    --cinza-medio: #c8d0e4;
+    --cinza-texto: #6b7a99;
+    --sombra: 0 4px 24px rgba(10,36,114,0.13);
+    --sombra-card: 0 2px 16px rgba(10,36,114,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: #0d1f5c;
+    color: var(--branco);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* FUNDO COM HALFTONE */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto; padding: 0 24px 48px; }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(135deg, var(--azul) 0%, #0d1f5c 60%, #0a1a4a 100%);
+    border-bottom: 3px solid var(--vermelho);
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.35);
+  }
+
+  .header-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 72px;
+    gap: 24px;
+  }
+
+  .logo-area { display: flex; align-items: center; gap: 16px; }
+
+  .logo-icon {
+    width: 48px; height: 48px;
+    background: var(--vermelho);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 20px;
+    letter-spacing: -1px;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 3px rgba(230,51,41,0.3);
+  }
+
+  .logo-text { line-height: 1.1; }
+  .logo-text .brand {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--branco);
+  }
+  .logo-text .sub {
+    font-size: 10px;
+    font-weight: 300;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--cinza-medio);
+  }
+
+  .header-center {
+    text-align: center;
+    flex: 1;
+  }
+  .header-center .titulo {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 13px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--creme);
+    opacity: 0.85;
+  }
+
+  .header-right {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  #mes-badge {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    background: var(--vermelho);
+    color: white;
+    padding: 4px 14px;
+    border-radius: 2px;
+  }
+  .updated {
+    font-size: 10px;
+    color: var(--cinza-medio);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* ── FILTRO ── */
+  .filtro-section {
+    margin: 32px 0 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .filtro-label {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--cinza-medio);
+    font-weight: 600;
+  }
+
+  .filtro-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .filtro-btn {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.05);
+    color: var(--cinza-medio);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filtro-btn:hover {
+    border-color: rgba(255,255,255,0.5);
+    color: white;
+    background: rgba(255,255,255,0.1);
+  }
+
+  .filtro-btn.ativo {
+    background: var(--vermelho);
+    border-color: var(--vermelho);
+    color: white;
+  }
+
+  .filtro-btn[data-esp="PSICOLOGIA"].ativo { background: var(--azul-claro); border-color: var(--azul-claro); }
+  .filtro-btn[data-esp="NUTRIÇÃO"].ativo { background: var(--vermelho); border-color: var(--vermelho); }
+  .filtro-btn[data-esp="SERVIÇO SOCIAL"].ativo { background: #1a7a5e; border-color: #1a7a5e; }
+
+  /* ── LOADING ── */
+  #loading {
+    text-align: center;
+    padding: 80px 0;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    color: var(--cinza-medio);
+    text-transform: uppercase;
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: var(--vermelho);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 20px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── CARDS ── */
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--cinza-medio);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 36px;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 20px 18px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, background 0.2s;
+    animation: fadeUp 0.5s both;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    background: rgba(255,255,255,0.07);
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--vermelho);
+  }
+
+  .card[data-cor="azul"]::before { background: var(--azul-claro); }
+  .card[data-cor="verde"]::before { background: #1a7a5e; }
+  .card[data-cor="vermelho"]::before { background: var(--vermelho); }
+  .card[data-cor="roxo"]::before { background: #6c3fc5; }
+  .card[data-cor="laranja"]::before { background: #d4821a; }
+  .card[data-cor="ciano"]::before { background: #0e8fa3; }
+  .card[data-cor="rose"]::before { background: #c2185b; }
+
+  .card-label {
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--cinza-texto);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  .card-value {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 42px;
+    line-height: 1;
+    color: var(--branco);
+    letter-spacing: -1px;
+  }
+
+  .card-esp {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--cinza-texto);
+    margin-top: 6px;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── TOTAL GERAL ── */
+  .total-geral-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 36px;
+    padding: 20px;
+    background: rgba(230,51,41,0.08);
+    border: 1px solid rgba(230,51,41,0.2);
+    border-radius: 8px;
+  }
+
+  .total-item { text-align: center; }
+  .total-item .tl { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: rgba(230,51,41,0.7); font-weight: 600; }
+  .total-item .tv {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 32px;
+    color: var(--vermelho);
+    line-height: 1.1;
+  }
+
+  /* ── GRÁFICOS ── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 36px;
+  }
+
+  @media (max-width: 768px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .cards-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .chart-box {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 24px;
+    animation: fadeUp 0.6s both;
+  }
+
+  .chart-box.wide { grid-column: 1 / -1; }
+
+  .chart-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--creme);
+    margin-bottom: 20px;
+    opacity: 0.8;
+  }
+
+  .chart-wrap { position: relative; height: 260px; }
+  .chart-wrap.tall { height: 320px; }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.2);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    margin-top: 16px;
+  }
+
+  /* ── ERRO ── */
+  .erro-box {
+    background: rgba(230,51,41,0.1);
+    border: 1px solid rgba(230,51,41,0.3);
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    color: #f88;
+    font-size: 13px;
+    margin: 20px 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-area">
+      <div class="logo-icon">L</div>
+      <div class="logo-text">
+        <div class="brand">Lund Nefrologia</div>
+        <div class="sub">Cuidado Integral &amp; Transformação Social</div>
+      </div>
+    </div>
+    <div class="header-center">
+      <div class="titulo">Dashboard de Impacto Social</div>
+    </div>
+    <div class="header-right">
+      <div id="mes-badge">Carregando...</div>
+      <div class="updated" id="updated-at"></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div id="loading">
+    <div class="spinner"></div>
+    Carregando dados da planilha...
+  </div>
+
+  <div id="conteudo" style="display:none">
+
+    <!-- FILTRO -->
+    <div class="filtro-section">
+      <span class="filtro-label">Especialidade</span>
+      <div class="filtro-btns">
+        <button class="filtro-btn ativo" data-esp="TODAS">Todas</button>
+        <button class="filtro-btn" data-esp="PSICOLOGIA">Psicologia</button>
+        <button class="filtro-btn" data-esp="NUTRIÇÃO">Nutrição</button>
+        <button class="filtro-btn" data-esp="SERVIÇO SOCIAL">Serviço Social</button>
+      </div>
+    </div>
+
+    <!-- TOTAIS DO MÊS -->
+    <div class="section-title">Totais do Mês Atual</div>
+    <div class="cards-grid" id="cards-container"></div>
+
+    <!-- TOTAL GERAL (só quando filtro = TODAS) -->
+    <div id="total-geral-section">
+      <div class="section-title">Total Geral — Todas as Especialidades</div>
+      <div class="total-geral-row" id="total-geral-row"></div>
+    </div>
+
+    <!-- GRÁFICOS -->
+    <div class="section-title">Análise por Tipo de Atendimento</div>
+    <div class="charts-grid">
+      <div class="chart-box">
+        <div class="chart-title">Atendimentos por Especialidade</div>
+        <div class="chart-wrap"><canvas id="chart-barras"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Distribuição de Atendimentos</div>
+        <div class="chart-wrap"><canvas id="chart-donut"></canvas></div>
+      </div>
+      <div class="chart-box wide">
+        <div class="chart-title">Evolução Histórica — Atendimentos Totais</div>
+        <div class="chart-wrap tall"><canvas id="chart-historico"></canvas></div>
+      </div>
+    </div>
+
+  </div><!-- /conteudo -->
+
+</div><!-- /wrap -->
+
+<footer>Lund Nefrologia · Instituto Lund Solidária · Dashboard de Impacto Social</footer>
+
+<script>
+const SHEET_ID = '1CYjQZZPXtLrTnGORpJ4S-AkOy1A7exI68FEceIu2aho';
+
+// GIDs das abas — obter em: planilha → aba → URL contém "gid=NÚMERO"
+// TOTAIS_DASH e HISTÓRICO precisam do GID correto
+// Fallback: usamos a exportação CSV por nome de aba via gviz com modo no-cors workaround
+async function fetchCSV(gid) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  return parseCSV(text);
+}
+
+async function fetchSheet(aba) {
+  // Mapa de nomes para GIDs conhecidos da planilha
+  // Se não souber o GID, usa gviz (funciona fora de iframe)
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(aba)}`;
+  const res = await fetch(url, { mode: 'cors' });
+  const text = await res.text();
+  return parseCSV(text);
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n').map(l => l.split(',').map(v => v.replace(/^"|"$/g, '').trim()));
+  if (lines.length < 2) return { cols: [], rows: [] };
+  const cols = lines[0];
+  const rows = lines.slice(1).map(vals => {
+    const obj = {};
+    cols.forEach((c, i) => { obj[c] = vals[i] ?? ''; });
+    return obj;
+  });
+  return { cols, rows };
+}
+
+const INDICADORES = [
+  { key: 'ADMISSÕES',         label: 'Admissões',          cor: 'azul' },
+  { key: 'ATEND. FAMILIAR',   label: 'Atend. Familiar',    cor: 'verde' },
+  { key: 'ATEND. INDIVIDUAL', label: 'Atend. Individual',  cor: 'roxo' },
+  { key: 'VISITAS HD',        label: 'Visitas HD',         cor: 'ciano' },
+  { key: 'ENCAMINHAMENTOS',   label: 'Encaminhamentos',    cor: 'laranja' },
+  { key: 'EVENTOS',           label: 'Eventos',            cor: 'rose' },
+  { key: 'BIOIMPEDÂNCIA',     label: 'Bioimpedância',      cor: 'vermelho' },
+  { key: 'ACOLHIMENTO',       label: 'Acolhimento',        cor: 'azul' },
+];
+
+const ESP_CORES = {
+  'PSICOLOGIA':     { bg: '#1e4db7', border: '#1e4db7' },
+  'NUTRIÇÃO':       { bg: '#E63329', border: '#E63329' },
+  'SERVIÇO SOCIAL': { bg: '#1a7a5e', border: '#1a7a5e' },
+};
+
+let dadosTotais = [];
+let dadosHistorico = [];
+let filtroAtual = 'TODAS';
+let charts = {};
+
+async function fetchSheet(aba) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(aba)}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const json = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+  const cols = json.table.cols.map(c => c.label);
+  const rows = json.table.rows
+    .filter(r => r && r.c && r.c[0] && r.c[0].v)
+    .map(r => {
+      const obj = {};
+      r.c.forEach((cell, i) => { obj[cols[i]] = cell ? cell.v : 0; });
+      return obj;
+    });
+  return { cols, rows };
+}
+
+function parseNum(v) {
+  if (!v || v === '') return 0;
+  return typeof v === 'number' ? v : parseFloat(String(v).replace(/[^\d.-]/g,'')) || 0;
+}
+
+function renderCards() {
+  const container = document.getElementById('cards-container');
+  container.innerHTML = '';
+
+  let linhas = dadosTotais;
+  if (filtroAtual !== 'TODAS') {
+    linhas = linhas.filter(r => {
+      const esp = String(r['ESPECIALIDADE'] || '').toUpperCase().trim();
+      return esp === filtroAtual;
+    });
+  }
+
+  const totalGeral = document.getElementById('total-geral-section');
+  totalGeral.style.display = filtroAtual === 'TODAS' ? 'block' : 'none';
+
+  if (linhas.length === 0) {
+    container.innerHTML = '<div class="erro-box">Nenhum dado encontrado para esta especialidade.</div>';
+    return;
+  }
+
+  INDICADORES.forEach((ind, idx) => {
+    linhas.forEach(linha => {
+      const esp = String(linha['ESPECIALIDADE'] || '').trim();
+      const val = parseNum(linha[ind.key]);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.setAttribute('data-cor', ind.cor);
+      card.style.animationDelay = `${idx * 0.05}s`;
+      card.innerHTML = `
+        <div class="card-label">${ind.label}</div>
+        <div class="card-value">${val.toLocaleString('pt-BR')}</div>
+        ${filtroAtual === 'TODAS' ? `<div class="card-esp">${esp}</div>` : ''}
+      `;
+      container.appendChild(card);
+    });
+  });
+
+  // Total geral
+  if (filtroAtual === 'TODAS') {
+    const row = document.getElementById('total-geral-row');
+    row.innerHTML = '';
+    INDICADORES.forEach(ind => {
+      const total = linhas.reduce((sum, l) => sum + parseNum(l[ind.key]), 0);
+      const item = document.createElement('div');
+      item.className = 'total-item';
+      item.innerHTML = `<div class="tl">${ind.label}</div><div class="tv">${total.toLocaleString('pt-BR')}</div>`;
+      row.appendChild(item);
+    });
+  }
+}
+
+function renderBarras() {
+  const ctx = document.getElementById('chart-barras').getContext('2d');
+  if (charts.barras) charts.barras.destroy();
+
+  let linhas = dadosTotais;
+  if (filtroAtual !== 'TODAS') linhas = linhas.filter(r => String(r['ESPECIALIDADE']||'').toUpperCase().trim() === filtroAtual);
+
+  const labels = INDICADORES.map(i => i.label);
+  const datasets = linhas.map(linha => {
+    const esp = String(linha['ESPECIALIDADE'] || '').trim().toUpperCase();
+    const cor = ESP_CORES[esp] || { bg: '#1e4db7' };
+    return {
+      label: String(linha['ESPECIALIDADE'] || '').trim(),
+      data: INDICADORES.map(ind => parseNum(linha[ind.key])),
+      backgroundColor: cor.bg + 'cc',
+      borderColor: cor.bg,
+      borderWidth: 1.5,
+      borderRadius: 3,
+    };
+  });
+
+  charts.barras = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#c8d0e4', font: { family: 'Barlow', size: 11 }, boxWidth: 12 } } },
+      scales: {
+        x: { ticks: { color: '#6b7a99', font: { family: 'Barlow', size: 10 }, maxRotation: 35 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#6b7a99', font: { family: 'Barlow', size: 11 } }, grid: { color: 'rgba(255,255,255,0.06)' } }
+      }
+    }
+  });
+}
+
+function renderDonut() {
+  const ctx = document.getElementById('chart-donut').getContext('2d');
+  if (charts.donut) charts.donut.destroy();
+
+  let linhas = dadosTotais;
+  if (filtroAtual !== 'TODAS') linhas = linhas.filter(r => String(r['ESPECIALIDADE']||'').toUpperCase().trim() === filtroAtual);
+
+  // Agrupa por indicador
+  const labels = INDICADORES.map(i => i.label);
+  const data = INDICADORES.map(ind => linhas.reduce((s, l) => s + parseNum(l[ind.key]), 0));
+  const cores = ['#1e4db7','#1a7a5e','#6c3fc5','#0e8fa3','#d4821a','#c2185b','#E63329','#1A3A8F'];
+
+  charts.donut = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: cores, borderColor: '#0d1f5c', borderWidth: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'right', labels: { color: '#c8d0e4', font: { family: 'Barlow', size: 10 }, boxWidth: 10, padding: 8 } }
+      }
+    }
+  });
+}
+
+function renderHistorico() {
+  const ctx = document.getElementById('chart-historico').getContext('2d');
+  if (charts.historico) charts.historico.destroy();
+
+  // Agrupa por mês, filtra por especialidade
+  let linhas = dadosHistorico;
+  if (filtroAtual !== 'TODAS') linhas = linhas.filter(r => String(r['ESPECIALIDADE']||'').toUpperCase().trim() === filtroAtual);
+
+  // Meses únicos ordenados
+  const meses = [...new Set(linhas.map(r => String(r['MÊS/ANO']||'').trim()))].filter(Boolean);
+
+  const especialidades = filtroAtual === 'TODAS'
+    ? ['PSICOLOGIA','NUTRIÇÃO','SERVIÇO SOCIAL']
+    : [filtroAtual];
+
+  const METRICAS_HIST = ['ATEND. INDIVIDUAL','VISITAS HD','EVENTOS'];
+  const CORES_HIST = ['#1e4db7','#E63329','#1a7a5e','#6c3fc5','#d4821a','#0e8fa3'];
+
+  const datasets = [];
+  if (filtroAtual === 'TODAS') {
+    especialidades.forEach((esp, i) => {
+      const cor = Object.values(ESP_CORES)[i]?.bg || CORES_HIST[i];
+      const totais = meses.map(mes => {
+        const linha = linhas.find(r =>
+          String(r['MÊS/ANO']||'').trim() === mes &&
+          String(r['ESPECIALIDADE']||'').toUpperCase().trim() === esp
+        );
+        if (!linha) return 0;
+        return METRICAS_HIST.reduce((s, m) => s + parseNum(linha[m]), 0);
+      });
+      datasets.push({ label: esp, data: totais, borderColor: cor, backgroundColor: cor + '22', tension: 0.35, pointRadius: 5, pointHoverRadius: 7, fill: true, borderWidth: 2 });
+    });
+  } else {
+    METRICAS_HIST.forEach((met, i) => {
+      const data = meses.map(mes => {
+        const linha = linhas.find(r => String(r['MÊS/ANO']||'').trim() === mes);
+        return linha ? parseNum(linha[met]) : 0;
+      });
+      datasets.push({ label: met, data, borderColor: CORES_HIST[i], backgroundColor: CORES_HIST[i]+'22', tension: 0.35, pointRadius: 5, fill: true, borderWidth: 2 });
+    });
+  }
+
+  charts.historico = new Chart(ctx, {
+    type: 'line',
+    data: { labels: meses, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: '#c8d0e4', font: { family: 'Barlow', size: 11 }, boxWidth: 12 } } },
+      scales: {
+        x: { ticks: { color: '#6b7a99', font: { family: 'Barlow', size: 11 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#6b7a99', font: { family: 'Barlow', size: 11 } }, grid: { color: 'rgba(255,255,255,0.06)' } }
+      }
+    }
+  });
+}
+
+function render() {
+  renderCards();
+  renderBarras();
+  renderDonut();
+  renderHistorico();
+}
+
+// Filtro
+document.querySelectorAll('.filtro-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('ativo'));
+    btn.classList.add('ativo');
+    filtroAtual = btn.dataset.esp;
+    render();
+  });
+});
+
+// Dados de fallback (usados em preview/iframe sem internet)
+const FALLBACK_TOTAIS = [
+  { 'ESPECIALIDADE':'PSICOLOGIA',     'ADMISSÕES':'3',  'ATEND. FAMILIAR':'6',  'ATEND. INDIVIDUAL':'44',  'VISITAS HD':'74',  'ENCAMINHAMENTOS':'5',  'EVENTOS':'0',  'BIOIMPEDÂNCIA':'0',  'ACOLHIMENTO':'1',  'MÊS/ANO':'Mar/2026' },
+  { 'ESPECIALIDADE':'NUTRIÇÃO',       'ADMISSÕES':'7',  'ATEND. FAMILIAR':'16', 'ATEND. INDIVIDUAL':'128', 'VISITAS HD':'161', 'ENCAMINHAMENTOS':'3',  'EVENTOS':'19', 'BIOIMPEDÂNCIA':'38', 'ACOLHIMENTO':'0',  'MÊS/ANO':'Mar/2026' },
+  { 'ESPECIALIDADE':'SERVIÇO SOCIAL', 'ADMISSÕES':'0',  'ATEND. FAMILIAR':'0',  'ATEND. INDIVIDUAL':'0',   'VISITAS HD':'0',   'ENCAMINHAMENTOS':'0',  'EVENTOS':'0',  'BIOIMPEDÂNCIA':'0',  'ACOLHIMENTO':'0',  'MÊS/ANO':'Mar/2026' },
+];
+const FALLBACK_HIST = [
+  { 'MÊS/ANO':'Out/2025','ESPECIALIDADE':'PSICOLOGIA',     'ADMISSÕES':'11','ATEND. FAMILIAR':'16','ATEND. INDIVIDUAL':'57', 'VISITAS HD':'632','ENCAMINHAMENTOS':'2', 'EVENTOS':'84', 'BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'5' },
+  { 'MÊS/ANO':'Out/2025','ESPECIALIDADE':'NUTRIÇÃO',       'ADMISSÕES':'5', 'ATEND. FAMILIAR':'10','ATEND. INDIVIDUAL':'162','VISITAS HD':'466','ENCAMINHAMENTOS':'3', 'EVENTOS':'102','BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'0' },
+  { 'MÊS/ANO':'Out/2025','ESPECIALIDADE':'SERVIÇO SOCIAL', 'ADMISSÕES':'6', 'ATEND. FAMILIAR':'26','ATEND. INDIVIDUAL':'81', 'VISITAS HD':'235','ENCAMINHAMENTOS':'23','EVENTOS':'98', 'BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'0' },
+  { 'MÊS/ANO':'Nov/2025','ESPECIALIDADE':'PSICOLOGIA',     'ADMISSÕES':'1', 'ATEND. FAMILIAR':'3', 'ATEND. INDIVIDUAL':'16', 'VISITAS HD':'156','ENCAMINHAMENTOS':'0', 'EVENTOS':'0',  'BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'0' },
+  { 'MÊS/ANO':'Nov/2025','ESPECIALIDADE':'NUTRIÇÃO',       'ADMISSÕES':'13','ATEND. FAMILIAR':'18','ATEND. INDIVIDUAL':'91', 'VISITAS HD':'454','ENCAMINHAMENTOS':'6', 'EVENTOS':'147','BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'0' },
+  { 'MÊS/ANO':'Nov/2025','ESPECIALIDADE':'SERVIÇO SOCIAL', 'ADMISSÕES':'5', 'ATEND. FAMILIAR':'21','ATEND. INDIVIDUAL':'31', 'VISITAS HD':'0',  'ENCAMINHAMENTOS':'11','EVENTOS':'0',  'BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'0' },
+  { 'MÊS/ANO':'Dez/2025','ESPECIALIDADE':'PSICOLOGIA',     'ADMISSÕES':'14','ATEND. FAMILIAR':'12','ATEND. INDIVIDUAL':'45', 'VISITAS HD':'650','ENCAMINHAMENTOS':'5', 'EVENTOS':'327','BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'2' },
+  { 'MÊS/ANO':'Dez/2025','ESPECIALIDADE':'NUTRIÇÃO',       'ADMISSÕES':'14','ATEND. FAMILIAR':'18','ATEND. INDIVIDUAL':'152','VISITAS HD':'159','ENCAMINHAMENTOS':'7', 'EVENTOS':'0',  'BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'0' },
+  { 'MÊS/ANO':'Dez/2025','ESPECIALIDADE':'SERVIÇO SOCIAL', 'ADMISSÕES':'10','ATEND. FAMILIAR':'25','ATEND. INDIVIDUAL':'44', 'VISITAS HD':'0',  'ENCAMINHAMENTOS':'17','EVENTOS':'0',  'BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'0' },
+  { 'MÊS/ANO':'Mar/2026','ESPECIALIDADE':'PSICOLOGIA',     'ADMISSÕES':'3', 'ATEND. FAMILIAR':'6', 'ATEND. INDIVIDUAL':'44', 'VISITAS HD':'74', 'ENCAMINHAMENTOS':'5', 'EVENTOS':'0',  'BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'1' },
+  { 'MÊS/ANO':'Mar/2026','ESPECIALIDADE':'NUTRIÇÃO',       'ADMISSÕES':'7', 'ATEND. FAMILIAR':'16','ATEND. INDIVIDUAL':'128','VISITAS HD':'161','ENCAMINHAMENTOS':'3', 'EVENTOS':'19', 'BIOIMPEDÂNCIA':'38','ACOLHIMENTO':'0' },
+  { 'MÊS/ANO':'Mar/2026','ESPECIALIDADE':'SERVIÇO SOCIAL', 'ADMISSÕES':'0', 'ATEND. FAMILIAR':'0', 'ATEND. INDIVIDUAL':'0',  'VISITAS HD':'0',  'ENCAMINHAMENTOS':'0', 'EVENTOS':'0',  'BIOIMPEDÂNCIA':'0','ACOLHIMENTO':'0' },
+];
+
+// Init
+async function init() {
+  try {
+    const [totais, hist] = await Promise.all([
+      fetchSheet('TOTAIS_DASH'),
+      fetchSheet('HISTÓRICO')
+    ]);
+
+    dadosTotais = totais.rows.filter(r => {
+      const esp = String(r['ESPECIALIDADE']||'').trim();
+      return esp && esp !== 'ESPECIALIDADE' && esp !== 'TOTAL GERAL';
+    });
+
+    dadosHistorico = hist.rows.filter(r => {
+      const mes = String(r['MÊS/ANO']||'').trim();
+      return mes && mes !== 'MÊS/ANO';
+    });
+
+    if (!dadosTotais.length) throw new Error('Sem dados na aba TOTAIS_DASH');
+
+  } catch (e) {
+    console.warn('Usando dados de fallback:', e.message);
+    dadosTotais = FALLBACK_TOTAIS;
+    dadosHistorico = FALLBACK_HIST;
+  }
+
+  const mesAtual = dadosTotais[0]?.['MÊS/ANO'] || 'Mês Atual';
+  document.getElementById('mes-badge').textContent = mesAtual;
+
+  const agora = new Date();
+  document.getElementById('updated-at').textContent =
+    `Atualizado ${agora.toLocaleDateString('pt-BR')} ${agora.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})}`;
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('conteudo').style.display = 'block';
+  render();
+}
+
+Chart.defaults.color = '#c8d0e4';
+init();
+</script>
+</body>
+</html>
