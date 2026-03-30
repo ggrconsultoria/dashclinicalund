@@ -481,6 +481,76 @@ let dadosHistorico = [];
 let filtroAtual = 'TODAS';
 let charts = {};
 
+// Normaliza nome de coluna: remove acentos, espaços duplos, uppercase
+function normCol(s) {
+  return String(s)
+    .toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // remove acentos
+    .replace(/\s+/g, ' ')                               // espaços duplos → simples
+    .trim();
+}
+
+// Mapa de normalização → chave usada no código
+const COL_MAP = {
+  'ESPECIALIDADE':       'ESPECIALIDADE',
+  'ADMISSOES':           'ADMISSÕES',
+  'ADMISSAO':            'ADMISSÕES',
+  'ATEND. FAMILIAR':     'ATEND. FAMILIAR',
+  'ATEND FAMILIAR':      'ATEND. FAMILIAR',
+  'AF':                  'ATEND. FAMILIAR',
+  'ATEND. INDIVIDUAL':   'ATEND. INDIVIDUAL',
+  'ATEND INDIVIDUAL':    'ATEND. INDIVIDUAL',
+  'AI':                  'ATEND. INDIVIDUAL',
+  'VISITAS HD':          'VISITAS HD',
+  'VISITAS':             'VISITAS HD',
+  'ENCAMINHAMENTOS':     'ENCAMINHAMENTOS',
+  'ENCAMINHAM ENTOS':    'ENCAMINHAMENTOS',
+  'ENC. PAC.':           'ENCAMINHAMENTOS',
+  'EVENTOS':             'EVENTOS',
+  'BIOIMPEDANCIA':       'BIOIMPEDÂNCIA',
+  'BIOIMPEDÂN CIA':      'BIOIMPEDÂNCIA',
+  'BIO':                 'BIOIMPEDÂNCIA',
+  'ACOLHIMENTO':         'ACOLHIMENTO',
+  'ACOLHIMENTO OBITO':   'ACOLHIMENTO',
+  'MES/ANO':             'MÊS/ANO',
+  'MES ANO':             'MÊS/ANO',
+};
+
+function resolveCol(raw) {
+  const n = normCol(raw);
+  return COL_MAP[n] || raw;
+}
+
+async function fetchSheet(aba) {
+  const GIDS = { 'TOTAIS_DASH': '992905386', 'HISTÓRICO': '423793355' };
+  const gid = GIDS[aba];
+  // Tenta export CSV primeiro, fallback para gviz JSON
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    // Se retornou HTML (página de login), lança erro
+    if (text.trim().startsWith('<!')) throw new Error('Redirecionou para login');
+    return parseCSV(text);
+  } catch(e) {
+    // Fallback: gviz JSON
+    const url2 = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`;
+    const res2 = await fetch(url2);
+    const text2 = await res2.text();
+    const json = JSON.parse(text2.slice(text2.indexOf('{'), text2.lastIndexOf('}')+1));
+    const cols = json.table.cols.map(c => resolveCol(c.label || c.id || ''));
+    const rows = (json.table.rows || [])
+      .filter(r => r && r.c && r.c[0] && r.c[0].v)
+      .map(r => {
+        const obj = {};
+        r.c.forEach((cell, i) => { obj[cols[i]] = cell ? (cell.v ?? '') : ''; });
+        return obj;
+      });
+    return { cols, rows };
+  }
+}
+
 function parseCSV(text) {
   const lines = [];
   let cur = '', inQ = false;
@@ -503,7 +573,8 @@ function parseCSV(text) {
     return cells;
   };
   if (lines.length < 2) return { cols: [], rows: [] };
-  const cols = splitLine(lines[0]);
+  const rawCols = splitLine(lines[0]);
+  const cols = rawCols.map(resolveCol);
   const rows = lines.slice(1).map(l => {
     const vals = splitLine(l);
     const obj = {};
@@ -511,15 +582,6 @@ function parseCSV(text) {
     return obj;
   });
   return { cols, rows };
-}
-
-async function fetchSheet(aba) {
-  const GIDS = { 'TOTAIS_DASH': '992905386', 'HISTÓRICO': '423793355' };
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GIDS[aba]}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const text = await res.text();
-  return parseCSV(text);
 }
 
 function parseNum(v) {
@@ -741,8 +803,13 @@ async function init() {
       fetchSheet('HISTÓRICO')
     ]);
 
+    // DEBUG — remover após confirmar funcionamento
+    console.log('TOTAIS cols:', totais.cols);
+    console.log('TOTAIS rows:', JSON.stringify(totais.rows.slice(0,3)));
+    console.log('HISTÓRICO cols:', hist.cols);
+
     dadosTotais = totais.rows.filter(r => {
-      const esp = String(r['ESPECIALIDADE']||'').trim();
+      const esp = String(r['ESPECIALIDADE']||'').trim().toUpperCase();
       return esp && esp !== 'ESPECIALIDADE' && esp !== 'TOTAL GERAL';
     });
 
