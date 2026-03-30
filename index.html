@@ -457,35 +457,7 @@
 const SHEET_ID = '1CYjQZZPXtLrTnGORpJ4S-AkOy1A7exI68FEceIu2aho';
 
 // GIDs das abas — obter em: planilha → aba → URL contém "gid=NÚMERO"
-// TOTAIS_DASH e HISTÓRICO precisam do GID correto
-// Fallback: usamos a exportação CSV por nome de aba via gviz com modo no-cors workaround
-async function fetchCSV(gid) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
-  const res = await fetch(url);
-  const text = await res.text();
-  return parseCSV(text);
-}
 
-async function fetchSheet(aba) {
-  // Mapa de nomes para GIDs conhecidos da planilha
-  // Se não souber o GID, usa gviz (funciona fora de iframe)
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(aba)}`;
-  const res = await fetch(url, { mode: 'cors' });
-  const text = await res.text();
-  return parseCSV(text);
-}
-
-function parseCSV(text) {
-  const lines = text.trim().split('\n').map(l => l.split(',').map(v => v.replace(/^"|"$/g, '').trim()));
-  if (lines.length < 2) return { cols: [], rows: [] };
-  const cols = lines[0];
-  const rows = lines.slice(1).map(vals => {
-    const obj = {};
-    cols.forEach((c, i) => { obj[c] = vals[i] ?? ''; });
-    return obj;
-  });
-  return { cols, rows };
-}
 
 const INDICADORES = [
   { key: 'ADMISSÕES',         label: 'Admissões',          cor: 'azul' },
@@ -509,20 +481,45 @@ let dadosHistorico = [];
 let filtroAtual = 'TODAS';
 let charts = {};
 
-async function fetchSheet(aba) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(aba)}`;
-  const res = await fetch(url);
-  const text = await res.text();
-  const json = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
-  const cols = json.table.cols.map(c => c.label);
-  const rows = json.table.rows
-    .filter(r => r && r.c && r.c[0] && r.c[0].v)
-    .map(r => {
-      const obj = {};
-      r.c.forEach((cell, i) => { obj[cols[i]] = cell ? cell.v : 0; });
-      return obj;
-    });
+function parseCSV(text) {
+  const lines = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') { inQ = !inQ; }
+    else if (ch === '\n' && !inQ) { lines.push(cur); cur = ''; }
+    else { cur += ch; }
+  }
+  if (cur) lines.push(cur);
+  const splitLine = line => {
+    const cells = []; let cell = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { q = !q; }
+      else if (ch === ',' && !q) { cells.push(cell.trim()); cell = ''; }
+      else { cell += ch; }
+    }
+    cells.push(cell.trim());
+    return cells;
+  };
+  if (lines.length < 2) return { cols: [], rows: [] };
+  const cols = splitLine(lines[0]);
+  const rows = lines.slice(1).map(l => {
+    const vals = splitLine(l);
+    const obj = {};
+    cols.forEach((c, i) => { obj[c] = vals[i] ?? ''; });
+    return obj;
+  });
   return { cols, rows };
+}
+
+async function fetchSheet(aba) {
+  const GIDS = { 'TOTAIS_DASH': '992905386', 'HISTÓRICO': '423793355' };
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GIDS[aba]}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  return parseCSV(text);
 }
 
 function parseNum(v) {
